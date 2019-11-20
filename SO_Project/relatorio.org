@@ -1,0 +1,1399 @@
+#+TITLE: Projeto de Sistemas Operacionais 2018
+#+AUTHOR: Renato Rotenberg 9349120
+#+LANGUAGE: bt-br
+#+OPTIONS: date:nil toc:nil
+#+LATEX_HEADER: \usepackage[AUTO]{babel}
+
+#+LATEX_HEADER: \usepackage{fancyhdr}
+#+LATEX_HEADER: \pagestyle{fancyplain}
+#+LATEX_HEADER: \chead{ESCOLA POLITÉCNICA DA USP DEPTO. DE ENGENHARIA DE COMPUTAÇÃO E SISTEMAS DIGITAIS}
+#+LATEX_HEADER: \lhead{}
+#+LATEX_HEADER: \rhead{}
+#+LATEX_HEADER: \cfoot{}
+#+LATEX_HEADER: \lfoot{\today}
+#+LATEX_HEADER: \rfoot{\thepage}
+
+#+LATEX_HEADER_EXTRA: \usepackage{mdframed}
+#+LATEX_HEADER_EXTRA: \BeforeBeginEnvironment{minted}{\begin{mdframed}}
+#+LATEX_HEADER_EXTRA: \AfterEndEnvironment{minted}{\end{mdframed}}
+
+\pagebreak
+
+#+TOC: headlines 3
+
+\pagebreak
+
+* Introdução
+
+Este é o relatório do projeto de Sistemas Operacionais do aluno Renato
+Rotenberg, NUSP 9349120. A primeira parte diz repeito a parte feita na matéria
+de Sistemas de Programação, enquanto a segunda parte detalha todas as adições e
+modificações ao projeto do ano passado para Renato: https://sites.google.com/view/2018-pcs3446-9349120/homecumpri
+r os requisitos dessa matéristd::cout << std::endl;a.
+
+\pagebreak
+
+* Parte 1 - Sistemas de Programação
+
+** Objetivo
+
+O objetivo desse projeto é criar um pequeno sistema de programação simples mas
+completo. 
+
+#+CAPTION: Arquitetura do sistema
+[[./img/panorama.png]]
+
+\pagebreak
+
+** Componentes do projeto
+
+O projeto está dividido nas seguintes partes:
+
+- *Especificações do projeto*: Descrever as especificações necessárias do
+  projeto para cumprir todos os objetivos propostos, como a linguagem simbólica
+  utilizada e o formato dos programas montados.
+- *A máquina virtual*: Descrição da especificação e implementação da máquina
+  virtual que rodará o código de máquina especificado.
+- *O montador*: Descrição da especificação e implementação do montador em
+  linguagem de alto nível.
+- *O sistema de programação*: Descrição do sistema de programação completo,
+  incluindo os comandos disponíveis e os programas inclusos.
+  
+\pagebreak
+
+** Especificações do projeto
+
+*** Os requerimentos do projeto
+
+ As características apresentadas pelo sistema são:
+
+ - Iniciação e finalização da operação do sistema.
+ - Linguagem (mínima) de comandos de controle.
+ - Simulador da linguagem de máquina virtual.
+ - Programas básicos de sistema: loader, dumper.
+ - Montador absoluto da ling. simbólica da máquina virtual.
+ - Códigos objeto absolutos do usuário, gerados neste sistema.
+
+*** A linguagem simbólica
+
+ A linguagem simbólica do projeto é composta por instruções de 8 e 16 bits, com
+ os quatro primeiros bits sendo o opcode da instrução e o resto (4 ou 12 bits
+ finais dependendo do opcode) o argumento. Note que as instruções de chamadas ao
+ sistema operacional não serão implementadas nesse projeto.
+
+ #+CAPTION: Instruções e pseudosinstruções da máquina virtual
+ [[./img/instrucoes.png]]
+
+*** O formato dos programas montados
+
+ Os programas montados estarão salvos em hexadecimal ASCII, com a extensão
+ =.txt=. Ao ser carregado, o loader lerá os caracteres individualmente e lidará
+ com a conversão entre o hexadecimal ASCII para binário. O formato dos programas
+ montados será  o seguinte:
+
+ - *Endereço inicial de carregamento*: Os primeiros 2 bytes (4 caracteres ASCII)
+   representam o endereço inicial para onde o programa será carregado
+ - *Tamanho do programa*: O próximo byte (2 caracteres ASCII) indicam o tamanho
+   do programa em bytes.
+ - *Programa a ser carregado*: Os próximos bytes, a partir do seguinte ao do
+   tamanho do programa até se ler o número de bytes especificado pelo tamanho do
+   programa, representam a informação a ser efetivamente carregada na memória, a
+   partir do endereço de carregamento inicial.
+ - *Endereço inicial de execução*: Os próximos 2 bytes (4 caracteres ASCII)
+   representam o endereço que a execução do programa deve começar. Em programas
+   sem endereço inicial de execução (úteis para apenas carregar dados na
+   memória), esse endereço inicial de execução foi convencionado para ser o
+   endereço 0x0000, que terá a instrução Halt Machine, para imediatamente
+   terminar a execução após carregar os dados.
+ - *Checksum*: O último byte (2 caracteres ASCII) é o byte de checksum. Esse byte
+   é calculado durante a montagem do programa e assegura a integridade do
+   carregamento. O valor dele deve ser tal para, ao somar todos os bytes do
+   arquivo montado e desconsiderando quaisquer overflows de 1 byte, o valor
+   resultante deve ser 0.
+
+ A seguir segue um exemplo de um pequeno programa montado que calcula módulo,
+ explicitando o arquivo montado e suas partes.
+
+ =60000D800C2006000A600B900C30FFF660004B= - Programa de módulo montado.
+
+ - =6000= - Endereço inicial de carregamento.
+ - =0D= - Tamanho em bytes (0x0D = 13 bytes).
+ - =800C2006000A600B900C30FFF6= - Programa a ser carregado.
+ - =6000= - Endereço inicial de execução.
+ - =4B= - Checksum.
+
+ #+CAPTION: Programa de cálculo de módulo.
+ #+BEGIN_SRC asm
+         @   /6000   ; Endereço inicial 0x6000
+ MODULO  LD  N       ; Carregar variável a ser testada
+         JN  NEG     ; Testar se negativa
+         JP  FIM     ; Nada a ser feito se positiva
+ NEG     *   NUM     ; Multiplicar por menos um se negativa
+         MM  N       ; Salvar novo valor de N
+ FIM     CN  0       ; Terminar execução do programa
+ NUM     K   -1      ; Constante -1
+ N       K   -10     ; Variável a ser tirado o módulo, mudar antes da montagem
+         #   MODULO  ; Fim do programa, iniciar execução em MODULO
+ #+END_SRC
+ 
+*** Ferramentas utilizadas
+
+ Esse projeto será feito em C++, e poderá ser compilado por qualquer compilador
+ que cumpra os requerimentos do C++11. A biblioteca =dirent.h= será utilizada
+ para a manipulação de arquivos nos diretórios. Ela é uma biblioteca padrão em
+ sistemas operacionais POSIX e esse projeto inclui um versão compatível com
+ Windows.
+
+ \pagebreak
+
+** A Máquina Virtual
+
+ A máquina virtual foi implementada em C++ como uma classe independente. Esse
+ capítulo descreve a implementação e o funcionamento da maquina virtual.
+
+*** A classe VM
+
+ A classe VM representa a máquina virtual inteiramente. As variáveis membros
+ representam os componentes da máquina, incluindo:
+
+ - *Acumulador (8 bits)*: representa o acumulador da VM.
+ - *PC (16 bits)*: representa o /program counter/ da VM. Os 4 bits superiores
+   representam o banco de memória o qual ele aponta e os 12 bits inferiores
+   representam o endereço apontado dentro do banco de memória.
+ - *Opcode (8 bits)*: representa o opcode que está sendo utilizado no ciclo de
+   máquina atual.
+ - *Operand (16 bits, apenas 12 utilizados)*: representa o operando no ciclo de
+   máquina atual.
+ - *Memória (arranjo de bytes de tamanho 0x10000)*: representa a memória da VM,
+   incluindo todos os 16 bancos de memória de 12 bits endereçáveis concatenados.
+   Assim o PC pode ser diretamente usado para acessar a memória já que ele contém
+   o banco a ser utilizado e o endereço dentro desse banco.
+ - *Modo de endereçamento (enumeração)*: representa o modo de endereçamento em
+   vigor (direto ou indireto), que influenciará as instruções que operam sobre
+   endereço.
+ - */Running/ (booleano)*: Representa se a máquina está rodando ao se a execução
+   dela foi interrompida.
+ - *Buffer de input (tamanho variável)*: representa o /device/ 1 de input, assim
+   é possível pegar bytes de arquivos para o carregamento de programas
+ - *Buffer de output (tamanho variável)*: representa o /device/ 1 de output,
+   assim é possível salvar bytes da memória para o dumper.
+ - *Buffer de argumetos de linha de comando (tamanho variável)*: representa o
+   /device/ 3 de input, assim é possível passar bytes de argumentos de linha de
+   comando.
+
+*** Inicialização da VM
+
+ Ao se criar o objeto VM, o construtor da classe automaticamente carrega o loader
+ na memória a partir do endereço 0x0000. Esse carregamento é feito no próprio
+ C++, emulando o carregamento automático por hardware de um computador de
+ verdade.
+
+*** O processamento - Simulador de eventos
+
+ Com o objeto da VM inicializado, a máquina pode ser utilizada. Para isso, é
+ necessário primeiro passar o código do programa montado que se deseja executar
+ para o buffer de input e executar a função =run()= da VM.
+
+**** Começo da execução
+
+ Ao começar a execução da maquina, os seguintes passos de inicialização são
+ tomados:
+
+ - Tornar o booleano /running/ verdadeiro.
+ - Setar o PC para 0x0001 (primeira instrução do loader).
+ - Setar o modo de endereçamento para direto.
+
+ Após isso começa o loop de execução, que consiste em:
+
+ - Conferir se a máquina ainda está rodando
+ - Avaliar a próxima instrução e executá-la.
+ - Conferir se é necessário mudar o modo de endereçamento para direto
+
+ Assim que a VM sair desse loop (Quando a variável /running/ é falsa), a execução
+ da máquina termina e a função =run()= se encerra, retornando o controle para
+ quem chamou a função.
+
+**** Carregamento de programas
+
+ Como a máquina virtual sempre começa execução no loader e o programa a ser
+ carregado encontra-se pronto para ser lido no /device/ 1 de input, a máquina
+ virtual sempre lidará com o carregamento antes de pular para a primeira
+ instrução do programa carregado. O loader será detalhado mais a frente.
+
+**** Extração e execução de instruções
+
+ No começo do loop de execução, a primeira etapa é extrair o byte apontado pelo
+ PC, adicionado mais um ao PC depois de extrair. os quatro bits superiores são
+ colocados na variável =opcode= e os quatro inferiores são colocados na variável
+ =operand=. Após a extração o =opcode= é testado com um /switch statement/, que
+ lida com a execução de todas as instruções possíveis a partir do =opcode= a ser
+ executado. Se a instrução a ser executada for uma instrução de endereço (que é
+ de 16 bits e não de 8), a VM faz uma extração de byte a mais para pegar o resto
+ do =operand=, adicionado mais um ao PC. Os detalhes da execução de cada
+ instrução podem ser analisados no código-fonte comentado (=vm.cpp=).
+
+ \pagebreak
+
+** O Montador
+
+ O montador implementado é um montador de 2 passos e, apesar de poder ser chamado
+ dentro do sistema de programação, não é implementado na máquina virtual, mas em
+ C++ devido a complexidade de tal programa. Por isso, o montador desse projeto é
+ considerado um /cross-assembler/, pois ele foi implementado em uma linguagem de
+ uma arquitetura mas monta código para outra arquitetura.
+
+ O montador, ao ser executado, ler um arquivo com a extensão =.asm= e, se o
+ programa for bem elaborado e não apresentar erros de formação, resulta no código
+ de máquina em hexadecimal ASCII em um arquivo =.txt= e um arquivo de listagem,
+ com os detalhes da compilação, com a extensão =.lst=.
+
+*** Estrutura
+
+ O montador foi implementado como uma classe chamada /Assembler/. As variáveis
+ membros são valores úteis de se rastrear durante toda a execução da montagem,
+ como o PC atual, o arquivo lido e os gerados, e o checksum computado. Ao criar
+ um objeto /Assembler/ com o arquivo a ser montado, a função =assemble()= monta o
+ programa, rodando o primeiro e o segundo passo em sucessão. Esses passos serão
+ detalhados a seguir.
+
+*** Implementação
+
+**** Primeiro passo
+
+ O primeiro passo do montador desempenha principalmente duas funções: Construir a
+ tabela de rótulos e conferir a consistência do programa. Ao encontrar um rótulo,
+ o montador o adiciona para a tabela de rótulos e pareia o com o valor do PC
+ atual, que representa o endereço absoluto do endereço. O primeiro passo também
+ calcula o tamanho do programa em bytes, e confere se ele não está vazio e se não
+ excede o tamanho máximo de 255 bytes (valor máximo representável por um byte).
+
+**** Segundo passo
+
+ O segundo passo desempenha a montagem efetiva do código, agora com todos os
+ rótulos mapeados. Primeiro ele pega o valor inicial de carregamento para
+ imprimi-lo nos arquivos de saída e depois imprime o tamanho do programa. Depois
+ ele monta linha a linha, decodificando as instruções e seus operandos, para
+ colocá-los nos arquivos de saída, computando o checksum a cada instrução. Por
+ último ele imprime o endereço inicial de execução e computa o checksum final,
+ imprimindo o seu resultado.
+
+*** Saída
+
+**** Arquivo =.txt= - o código de máquina formatado
+
+ O arquivo .txt gerado é o código de máquina que deverá ser fornecido como está
+ para a VM para executar o programa montado. Como previamente discutido, esse
+ arquivo contém todas as informações necessárias para o carregamento devidamente
+ formatado.
+
+**** Arquivo =.lst= - a listagem do código montado
+
+ Outro arquivo gerado é a listagem =.lst=. Esse arquivo contém o código assembly
+ que foi montado junto com o código de máquina montado, pareando as instruções em
+ assembly com o código montado equivalente e a posição de memória aonde será
+ carregado. Esse arquivo é útil para conferir exatamente como o programa ficará
+ carregado na memória e qual o código de máquina equivalente para cada instrução
+ individual em um programa A seguir segue a listagem da montagem do programa de
+ cálculo de módulo que apareceu previamente neste relatório.
+
+ #+CAPTION: Arquivo modulo.lst
+ #+BEGIN_SRC sh
+ 6000               @   /6000   
+ 6000 800C  MODULO  LD  N       
+ 6002 2006          JN  NEG     
+ 6004 000A          JP  FIM     
+ 6006 600B  NEG     *   NUM     
+ 6008 900C          MM  N       
+ 600A 30    FIM     CN  0       
+ 600B FF    NUM     K   -1      
+ 600C F6    N       K   -10    
+ 600D 6000          #   MODULO  
+ #+END_SRC
+
+*** Tratamento de erros
+
+ O montador foi feito para detectar a maioria dos erros de formação de programas,
+ como rótulo não definido, instrução não existente e argumento de instrução
+ faltante ou errado. Ao encontrar um erro, o montador joga uma exceção com a
+ descrição do erro, junto com o número da linha do código que ocorreu esse erro
+ se aplicável, e interrompe imediatamente a montagem do programa. O código fonte
+ do montador pode ser consultado para se conferir todos os erros possíveis que
+ ele detecta, atentando-se para as chamadas de /throw/.
+
+ Os possíveis erros detectáveis incluem:
+
+ - Arquivo =.asm= não existente
+ - Opcode/Pseudocódigo inválido.
+ - Opcode/Pseudocódigo com operando inválido.
+ - Uso de rótulo não definido.
+ - Programa vazio
+ - Programa maior que 255 bytes (ou seja, tamanho não representável por 1 byte)
+ - Programa que não fica completamente em um único banco de memória (isso
+   tornaria os comandos de memória de endereçamento direto não funcionais)
+ - Programa sem o endereço inicial de carregamento
+
+ \pagebreak
+
+** O Sistema de programação
+
+ A etapa final desse projeto é juntar todos os componentes desenvolvidos em um
+ sistema de programação completo para o desenvolvimento de programas em linguagem
+ simbólica absoluta para a máquina virtual adotada para esta disciplina.
+
+*** Compilação
+
+ Esse projeto foi feito em C++, sem dependências externas e pode ser compilado
+ por qualquer compilador que satisfaça os requerimentos do C++11. O projeto
+ inclui um =makefile= e pode ser compilado em Linux com o comando =make=. A
+ compilação gera um executável chamado =sisprog=, que pode ser executado no
+ terminal.
+
+ Se for utilizado outro sistema de compilação, é importante que se inclua todos
+ os arquivos com extensão =.cpp= e =.h=, inclusive o arquivo =dirent.h= na pasta
+ =ext/= se o projeto for compilado no Windows.
+
+*** Sistema de múltiplos usuários
+
+ Ao ligar o sistema pela primeira vez a primeira coisa a ser feita é o Login,
+ responsável pela identificação do usuário ao ingressar no sistema de
+ programação. Os usuários são representados por pastas dentro da pasta
+ =programs/=. nessa pasta também há um arquivo chamado =logins.txt=, que contém
+ todos os nomes de usuários existentes e suas respectivas senhas.
+
+ Ao logar a um usuário com a senha correta, o interpretador de comandos fica
+ disponível, pronto para receber instruções do usuário. Se for fornecido um
+ usuário não existente ou um senha incorreta, o programa informa sobre o erro e
+ repete o pedido de login e senha.
+
+*** Os comandos disponíveis
+
+ Após o login, os seguintes comandos se tornam disponíveis: *$DIR*, *$DEL*,
+ *$RUN*, *$END*.
+
+**** $DIR 
+
+ - Formato: $DIR
+
+ O comando $DIR exibe como saída no terminal a lista de nomes dos programas do
+ usuário correntemente disponíveis no sistema. Para isso ele procura na pasta do
+ usuário todos os arquivos com extensão =.txt= e os mostra, excluindo quaisquer
+ outros arquivos.
+
+ Além de mostrar os arquivos =.txt=, ele também mostra o montador como um
+ programa disponível. Como o montador não é feito na VM e é um programa C++
+ compilado junto com o sistema, esse comportamento foi feito /hardcoded/, o que
+ quebra a uniformidade da maneira que os programas são feitos disponíveis, mas é
+ necessário para que o montador seja facilmente acessível de dentro do sistema.
+
+**** $DEL
+
+ - Formato: $DEL <nome>
+
+ O comando $DEL remove do sistema de programação o acesso ao programa cujo nome é
+ fornecido como parâmetro do comando. Para isso, ao invés de imediatamente apagar
+ o arquivo, ele adiciona a extensão =.del= para marcar a deleção do arquivo. Como
+ a extensão foi mudada, o programa não mais aparecerá ao se executar o comando
+ $DIR. Após se finalizar a execução do sistema, ele irá enfim apagar todos os
+ arquivos na pasta do usuário com  a extensão =.del=.
+
+ É importante notar que o montador não é apagável, já que ele não é um arquivo de
+ texto na pasta do usuário mas sim um programa em C++ embutido no sistema de
+ programação.
+
+**** $RUN
+
+ - Formato: $RUN <nome> <argumentos>
+
+ O comando $RUN dispara a execução do simulador da máquina hospedeira, que já tem
+ o loader pronto na memória, e coloca o arquivo como input do /device/ 1 para que
+ seja feita a carga do código do programa cujo nome é fornecido como parâmetro.
+ Esse comando foi estendido para também receber argumentos de linha de comando,
+ que podem ser acessados pelo programa através do /device/ 3, útil para programas
+ tipo o dumper e o monitor de memória.
+
+ No final da execução do programa, o sistema confere se algo foi escrito para o
+ /device/ 1 de output. Se sim, o sistema cria um novo arquivo com o nome
+ =<data-horário>.txt= com o conteúdo do /device/. Isso é útil para a saída do
+ dumper.
+
+**** $END
+
+ Através deste comando o interpretador de comandos é informado de que o usuário
+ não deseja mais continuar utilizando o sistema de programação. Ao ser executado,
+ o sistema apaga todos os arquivos na pasta do usuário com a extensão =.del= (ou
+ seja, marcados para deleção), imprimindo no terminal essas ações e avisa ao
+ usuário sobre o desligamento bem sucedido do sistema. Após isso, o programa se
+ encerra.
+
+*** Os programas inclusos
+
+ Esse projeto já vem com os programas essenciais para o sistema e mais alguns
+ outros para comprovar o funcionamento do sistema.
+
+**** Subrotinas recorrentes (Algorítimos úteis)
+
+ Durante o desenvolvimento dos programas, algumas subrotinas foram elaboradas e
+ são repetidas dentro de alguns programas pela utilidade geral delas e pela
+ necessidade de ser chamá-las múltiplas vezes durante a execução de alguns
+ programas. A seguir elas são descritas.
+
+***** GETBYTE - Pegar byte de arquivo representado em hexadecimal ASCII
+
+ Como os programas são representados no disco em hexadecimal ASCII, surge a
+ necessidade de se converter os dados lidos para binário. Para isso a subrotina
+ GETBYTE foi elaborada.
+
+ Nos programas que precisam dela (como o loader), essa subrotina pode ser chamada
+ para extrair um byte convertido. O que a subrotina GETBYTE faz é extrair dois
+ bytes do arquivo lido (já que cada caractere ASCII é um byte e dois caracteres
+ representam um único byte) e converter eles no byte equivalente em binário. A
+ saída dessa subrotina fica no acumulador, pronta para ser usada imediatamente
+ após ser chamada no programa principal.
+
+ A conversão é detalhada nos comentários da subrotina a seguir.
+
+ #+BEGIN_SRC asm
+ GETBYTE $   2        ; Subrotina para pegar e converter byte hexa ASCII para binario
+ GETNIB1 IO  1        ; Pegar primeiro nibble
+         -   NH3A     ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN1  ; Pular se for entre 0-9
+         -   NH7      ; Compensar para entre A-F
+ ASCIIN1 +   NHA      ; Corrigir para entre 0-9
+         *   NH10     ; Deslocamento em 4 bits para a esquerda
+         MM  UPNIB    ; Salvar nibble superior
+ GETNIB2 IO  1        ; Pegar segundo nibble
+         -   NH3A     ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN2  ; Pular se entre 0-9
+         -   NH7      ; Compensar para entre A-F
+ ASCIIN2 +   NHA      ; Corrigir para entre 0-9
+         +   UPNIB    ; Adicionar nibble superior, completando o byte a ser retornado
+         CN  2        ; Terminar subrotina
+         JP  GETBYTE
+ NH7     K   /7       ; Constante numerica /7
+ NHA     K   /A       ; Constante numerica /A
+ NH10    K   /10      ; Constante numerica /10
+ NH3A    K   /3A      ; Constante numerica /3A
+ UPNIB   K   0        ; Nibble superior
+ #+END_SRC
+
+***** PUTBYTE - Pegar byte em binário da memória e salvar em hexadecimal ASCII
+
+ A subrotina PUTBYTE é o oposto da subrotina GETBYTE e é útil para o dumper. Essa
+ subrotina pega o byte no acumulador e imprime no /device/ 1 (utilizado para
+ input/output de arquivos) os dois caracteres ASCII que representam esse byte.
+ Como o dumper precisa fazer isso com frequência, é util ter essa operação como subrotina.
+
+ A conversão é detalhada nos comentários da subrotina a seguir.
+
+ #+BEGIN_SRC asm
+ PUTBYTE $   2          ; Subrotina de dump de byte em hexadecimal ASCII
+         MM  TMPBYTE    ; Guardar byte a ser dumpado
+         /   NH10       ; Pegar nibble superior
+         *   NH10
+         MM  UPNIB      ; Armazenar nibble superior
+         /   NH10
+         -   NHA        ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN1    ; Pular se for entre 0-9
+         +   NH7        ; Compensar para entre A-F
+ ASCIIN1 +   NH3A       ; Corrigir para entre 0-9
+         IO  5          ; Dump do nibble convertido
+         LD  TMPBYTE    ; Carregar nibble inferior
+         -   UPNIB
+         -   NHA        ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN2    ; Pular se for entre 0-9
+         +   NH7        ; Compensar para entre A-F
+ ASCIIN2 +   NH3A       ; Corrigir para entre 0-9
+         IO  5          ; Dump do nibble convertido
+         LD  TMPBYTE    ; Carregar byte dumpado antes de retornar
+         CN  2          ; Terminar subrotina
+         JP  PUTBYTE
+ NH7     K   /7         ; Constante numerica /7
+ NHA     K   /A         ; Constante numerica /A
+ NH10    K   /10        ; Constante numerica /10
+ NH3A    K   /3A        ; Constante numerica /3A
+ TMPBYTE K   0          ; Byte a ser dumpado
+ UPNIB   K   0          ; Nibble superior
+ #+END_SRC
+
+***** GETARG - Pegar byte hexadecimal ASCII de argumento de execução
+
+ A subrotina GETARG serve para pegar argumentos de execução, útil para programas
+ que requerem uma entrada como o dumper e o monitor de memória. Ele chega a ser
+ quase idêntico a subrotina GETBYTE, a única alteração é que ela pega os dados a
+ partir do /device/ 3, reservado para os argumentos de execução.
+
+ #+BEGIN_SRC asm
+ GETARG  $   2          ; Subrotina para pegar e converter byte hexa do argumento ASCII para binario
+ GETNIB1 IO  3          ; Pegar primeiro nibble
+         -   NH3A       ; Testar se entre 0-9 ou A-F
+         JN  GAASC1     ; Pular se for entre 0-9
+         -   NH7        ; Compensar para entre A-F
+ GAASC1  +   NHA        ; Corrigir para entre 0-9
+         *   NH10       ; Deslocamento em 4 bits para a esquerda
+         MM  UPNIB      ; Salvar nibble superior
+ GETNIB2 IO  3          ; Pegar segundo nibble
+         -   NH3A       ; Testar se entre 0-9 ou A-F
+         JN  GAASC2     ; Pular se entre 0-9
+         -   NH7        ; Compensar para entre A-F
+ GAASC2  +   NHA        ; Corrigir para entre 0-9
+         +   UPNIB      ; Adicionar nibble superior, completando o byte a ser retornado
+         CN  2          ; Terminar subrotina
+         JP  GETARG
+ NH7     K   /7         ; Constante numerica /7
+ NHA     K   /A         ; Constante numerica /A
+ NH10    K   /10        ; Constante numerica /10
+ NH3A    K   /3A        ; Constante numerica /3A
+ UPNIB   K   0          ; Nibble superior
+ #+END_SRC
+
+***** PRTBYTE - Imprimir byte na tela convertido para hexadecimal ASCII
+
+ Novamente, a subrotina PRTBYTE é uma versão adaptada da subrotina PUTBYTE para
+ imprimir na tela ao invés de em um arquivo, usando o /device/ 2 ao invés do 3.
+
+ #+BEGIN_SRC asm
+ PRTBYTE $   2          ; Subrotina de impressao de byte em hexadecimal ASCII
+         MM  TMPBYTE    ; Guardar byte a ser dumpado
+         /   NH10       ; Pegar nibble superior
+         *   NH10
+         MM  UPNIB      ; Armazenar nibble superior
+         /   NH10
+         -   NHA        ; Testar se entre 0-9 ou A-F
+         JN  PBASC1     ; Pular se for entre 0-9
+         +   NH7        ; Compensar para entre A-F
+ PBASC1  +   NH3A       ; Corrigir para entre 0-9
+         IO  6          ; Print do nibble convertido
+         LD  TMPBYTE    ; Carregar nibble inferior
+         -   UPNIB
+         -   NHA        ; Testar se entre 0-9 ou A-F
+         JN  PBASC2     ; Pular se for entre 0-9
+         +   NH7        ; Compensar para entre A-F
+ PBASC2  +   NH3A       ; Corrigir para entre 0-9
+         IO  6          ; Print do nibble convertido
+         LD  TMPBYTE    ; Carregar byte impresso antes de retornar
+         CN  2          ; Terminar subrotina
+         JP  PRTBYTE
+ NH7     K   /7         ; Constante numerica /7
+ NHA     K   /A         ; Constante numerica /A
+ NH10    K   /10        ; Constante numerica /10
+ NH3A    K   /3A        ; Constante numerica /3A
+ TMPBYTE K   0          ; Byte a ser impresso
+ UPNIB   K   0          ; Nibble superior
+ #+END_SRC
+
+**** Loader hexadecimal ASCII
+
+ O loader desse projeto foi feito para a máquina virtual na linguagem de montagem
+ do projeto. Esse é um simples programa que lê o arquivo montado, utilizando as
+ informações no arquivo para saber aonde começar a carregar, quantos bytes ler e
+ para onde o PC deve pular assim que acabar o carregamento.
+
+ Para ler os bytes de entrada o loader faz uso da subrotina GETBYTE, já detalhada
+ acima. Com os primeiros dois bytes ele salva o endereço inicial de carregamento
+ e com o próximo byte o tamanho do programa. Depois ele entra em um loop aonde
+ ele salva cada byte lido no endereço previamente salvo, atualizando ele por um a
+ cada iteração. Ao acabar o loop, ele finalmente pega os dois próximos bytes e o
+ s salva, preparando para dar um salto indireto nesse endereço. Antes do salto,
+ porém, o loader testa a integridade do programa carregado pelo checksum. Durante
+ toda sua execução, o loader também vai somando todos os bytes lidos para um
+ endereço na memória, ignorando overflows, e testa ao final se essa variável tem
+ valor zero (algo garantido pelo byte extra de checksum). Se o teste for bem
+ sucedido, o loader pula para o primeiro endereço de execução do programa
+ carregado, finalizando o carregamento e iniciando a execução do programa de fato.
+
+ Nota-se que o programa do loader coloca uma instrução HALT MACHINE no endereço
+ 0x0000. Essa foi uma convenção adotada nesse projeto para carregamentos que não
+ executam nada, e apenas carregam dados.
+
+ Por último, é importante notar que o loader não se encontra na pasta de nenhum
+ usuário. Isso é porque, ao contrário dos outros programas, o loader não é um
+ programa que é chamado diretamente pelo usuário, mais sim carregado
+ automaticamente pela máquina no começo da execução e implicitamente chamado pelo
+ usuário toda vez que ele executa algum outro programa, já que a VM precisa
+ primeiro executar o loader antes de rodar qualquer programa.
+
+ #+BEGIN_SRC asm
+         @   /0000
+         CN  0
+ LOADER  SC  GETBYTE  ; Carregar o byte superior do endereco inicial
+         MM  ADDRU
+         MM  CHECK    ; Inicializar checksum
+         SC  GETBYTE  ; Carregar o byte inferior do endereco inicial
+         MM  ADDRL
+         +   CHECK    ; Atualizar checksum
+         MM  CHECK
+         SC  GETBYTE  ; Carregar tamanho em bytes
+         MM  SIZE
+         +   CHECK    ; Atualizar checksum
+         MM  CHECK
+ BODY    SC  GETBYTE  ; Carregar proximo byte
+         CN  2        ; Salvar no endereco em ADDRU
+         MM  ADDRU
+         +   CHECK    ; Atualizar checksum
+         MM  CHECK
+         LD  ADDRL    ; Adicionar um ao byte inferior do endereco
+         +   ONE
+         MM  ADDRL
+         JZ  OVERFL   ; Lidar com overflow do byte inferior do endereco
+         JP  UPDSIZE
+ OVERFL  LD  ADDRU    ; Adicionar um ao byte superior do endereco
+         +   ONE
+         MM  ADDRU
+ UPDSIZE LD  SIZE     ; Subtrair um do tamanho do programa
+         -   ONE
+         MM  SIZE
+         JZ  LDRUN    ; Parar de carregar o programa se SIZE = 0
+         JP  BODY     ; Recomecar loop de carga do programa
+ LDRUN   SC  GETBYTE  ; Carregar o byte superior do endereco de execucao
+         MM  ADDRU
+         +   CHECK    ; Atualizar checksum
+         MM  CHECK
+         SC  GETBYTE  ; Carregar o byte inferior do endereco de execucao
+         MM  ADDRL
+         +   CHECK    ; Atualizar checksum
+         MM  CHECK
+         SC  GETBYTE  ; Conferir checksum
+         +   CHECK
+         JZ  RUN      ; Comecar a execucao se checksum estiver correto
+         JP  ERROR    ; Tratar erro de checksum
+ RUN     CN  2        ; Pular para o comeco da execucao do programa
+         JP  ADDRU
+ ERROR   LD  CH!      ; Imprimir "!" para indicar erro
+         IO  6
+         CN  0        ; Abortar execucao
+ ONE     K   1        ; Constante um
+ CH!     K   "!"      ; caracter exclamacao
+ ADDRU   K   0        ; Byte superior de endereco
+ ADDRL   K   0        ; Byte inferior de endereco
+ SIZE    K   0        ; Tamanho do programa
+ CHECK   K   0        ; Checksum
+ GETBYTE $   2        ; Subrotina para pegar e converter byte hexa ASCII para binario
+ GETNIB1 IO  1        ; Pegar primeiro nibble
+         -   NH3A     ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN1  ; Pular se for entre 0-9
+         -   NH7      ; Compensar para entre A-F
+ ASCIIN1 +   NHA      ; Corrigir para entre 0-9
+         *   NH10     ; Deslocamento em 4 bits para a esquerda
+         MM  UPNIB    ; Salvar nibble superior
+ GETNIB2 IO  1        ; Pegar segundo nibble
+         -   NH3A     ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN2  ; Pular se entre 0-9
+         -   NH7      ; Compensar para entre A-F
+ ASCIIN2 +   NHA      ; Corrigir para entre 0-9
+         +   UPNIB    ; Adicionar nibble superior, completando o byte a ser retornado
+         CN  2        ; Terminar subrotina
+         JP  GETBYTE
+ NH7     K   /7       ; Constante numerica /7
+ NHA     K   /A       ; Constante numerica /A
+ NH10    K   /10      ; Constante numerica /10
+ NH3A    K   /3A      ; Constante numerica /3A
+ UPNIB   K   0        ; Nibble superior
+         #   LOADER
+ #+END_SRC
+
+**** Dumper ASCII hexadecimal
+
+ O dumper basicamente segue a lógica reversa do loader. Ele utiliza as subtinas
+ PUTBYTE para salvar os bytes lidos em um arquivo e a subrotina GETARG para saber
+ aonde começar a dumpar, a quantidade de bytes a ser dumpado e o endereço inical
+ de execução dos dados dumpados (se a área a ser dumpada não for um programa,
+ sendo apenas dados, é recomendado fazer esse endereço 0x0000, pois nesse
+ endereço há a instrução HALT MACHINE, que encerrará imediatamente a execução da
+ VM quando o loader carregar o programa dumpado).
+
+ O nome do arquivo dumpado será =<data-horário>.txt=. Essa convenção foi adotada
+ para garantir que todo arquivo dumpado tenha um filename único, sem colisões. O
+ usuário depois pode manualmente renomear o arquivo pela máquina hospedeira.
+
+ #+BEGIN_SRC asm
+         @   /0100
+ DUMPER  SC  GETARG  ; Despejar o byte superior do endereco inicial
+         SC  PUTBYTE
+         MM  ADDRU
+         MM  CHECK   ; Inicializar checksum
+         SC  GETARG  ; Despejar o byte inferior do endereco inicial
+         SC  PUTBYTE
+         MM  ADDRL
+         +   CHECK   ; Atualizar checksum
+         MM  CHECK
+         IO  3       ; Ignorar espaco
+         SC  GETARG  ; Despejar tamanho
+         SC  PUTBYTE
+         MM  SIZE
+         +   CHECK   ; Atualizar checksum
+         MM  CHECK
+ BODY    CN  2       ; Despejar proximo byte
+         LD  ADDRU
+         SC  PUTBYTE
+         +   CHECK   ; Atualizar checksum
+         MM  CHECK
+         LD  ADDRL   ; Adicionar um ao byte inferior do endereco
+         +   ONE
+         MM  ADDRL
+         JZ  OVERFL  ; Lidar com overflow do byte inferior do endereco
+         JP  UPDSIZE
+ OVERFL  LD  ADDRU   ; Adicionar um ao byte superior do endereco
+         +   ONE
+         MM  ADDRU
+ UPDSIZE LD  SIZE    ; Subtrair um do tamanho do programa
+         -   ONE
+         MM  SIZE
+         JZ  BODYEND ; Parar de carregar o programa se SIZE = 0
+         JP  BODY    ; Recomecar loop de carga do programa
+ BODYEND IO  3       ; Ignorar espaco
+         SC  GETARG  ; Despejar o byte superior do endereco de execucao
+         SC  PUTBYTE
+         +   CHECK   ; Atualizar checksum
+         MM  CHECK
+         SC  GETARG  ; Despejar o byte inferior do endereco de execucao
+         SC  PUTBYTE
+         +   CHECK   ; Atualizar checksum
+         MM  CHECK
+         LD  ZERO    ; Calcular checksum
+         -   CHECK
+         SC  PUTBYTE ; Despejar checksum
+         CN  0       ; Fim do dumper
+ ZERO    K   0       ; Constante zero
+ ONE     K   1       ; Constante um
+ ADDRU   K   0       ; Byte superior de endereco
+ ADDRL   K   0       ; Byte inferior de endereco
+ SIZE    K   0       ; Tamanho do programa
+ CHECK   K   0       ; Checksum
+
+ GETARG  $   2       ; Subrotina para pegar e converter byte hexa do argumento ASCII para binario
+ GETNIB1 IO  3       ; Pegar primeiro nibble
+         -   NH3A    ; Testar se entre 0-9 ou A-F
+         JN  GAASC1  ; Pular se for entre 0-9
+         -   NH7     ; Compensar para entre A-F
+ GAASC1  +   NHA     ; Corrigir para entre 0-9
+         *   NH10    ; Deslocamento em 4 bits para a esquerda
+         MM  UPNIB   ; Salvar nibble superior
+ GETNIB2 IO  3       ; Pegar segundo nibble
+         -   NH3A    ; Testar se entre 0-9 ou A-F
+         JN  GAASC2  ; Pular se entre 0-9
+         -   NH7     ; Compensar para entre A-F
+ GAASC2  +   NHA     ; Corrigir para entre 0-9
+         +   UPNIB   ; Adicionar nibble superior, completando o byte a ser retornado
+         CN  2       ; Terminar subrotina
+         JP  GETARG
+ PUTBYTE $   2       ; Subrotina de dump de byte em hexadecimal ASCII
+         MM  TMPBYTE ; Guardar byte a ser dumpado
+         /   NH10    ; Pegar nibble superior
+         *   NH10
+         MM  UPNIB   ; Armazenar nibble superior
+         /   NH10
+         -   NHA     ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN1 ; Pular se for entre 0-9
+         +   NH7     ; Compensar para entre A-F
+ ASCIIN1 +   NH3A    ; Corrigir para entre 0-9
+         IO  5       ; Dump do nibble convertido
+         LD  TMPBYTE ; Carregar nibble inferior
+         -   UPNIB
+         -   NHA     ; Testar se entre 0-9 ou A-F
+         JN  ASCIIN2 ; Pular se for entre 0-9
+         +   NH7     ; Compensar para entre A-F
+ ASCIIN2 +   NH3A    ; Corrigir para entre 0-9
+         IO  5       ; Dump do nibble convertido
+         LD  TMPBYTE ; Carregar byte dumpado antes de retornar
+         CN  2       ; Terminar subrotina
+         JP  PUTBYTE
+ NH7     K   /7      ; Constante numerica /7
+ NHA     K   /A      ; Constante numerica /A
+ NH10    K   /10     ; Constante numerica /10
+ NH3A    K   /3A     ; Constante numerica /3A
+ TMPBYTE K   0       ; Byte a ser dumpado
+ UPNIB   K   0       ; Nibble superior
+         #   DUMPER
+
+ #+END_SRC
+
+**** Monitor de memória
+
+ O programa monitor de memória serve para inspecionar qualquer espaço de memória,
+ útil para inspecionar a memória depois de carregar e executar um programa que
+ armazena seu resultado na memória. Ao ser executado, ele imprime o endereço do
+ primeiro byte impresso seguindo pelos bytes desejados, separados por espaços.
+
+ Ele recebe dois argumentos de execução, que são passados junto com o comando
+ RUN. Esses argumentos são no formato =xxxx yy=, aonde =xxxx= é o endereço
+ inicial a ser impresso e =yy= o número de bytes a seres impressos, ambos em
+ hexadecimal. Para mostrar os 10 bytes entre 0x4000 e 0x400A, por exemplo, o
+ comando seria =RUN monitor.txt 4000 0A=.
+
+ Para saber aonde algum programa salva alguma variável, basta olhar para o
+ arquivo =.lst= gerado durante a compilação do respectivo programa, pois ele
+ lista o endereço absoluto de cada byte que ele ocupará na memória ao ser
+ carregado.
+
+ #+BEGIN_SRC asm
+         @   /4000
+ MONITOR SC  GETARG   ; Carregar o byte superior do endereco inicial
+         MM  ADDRU
+         SC  GETARG   ; Carregar o byte inferior do endereco inicial
+         MM  ADDRL
+         IO  3        ; Ignorar espaco
+ GETSIZE SC  GETARG   ; Carregar quantidade de bytes a serem impressos
+         MM  SIZE
+ PRINT   LD  SIZE     ; Conferir se continua a imprimir
+         JZ  FIM      ; Acaba se SIZE == 0
+         -   ONE      ; Subtrair um de SIZE
+         MM  SIZE
+         CN  2        ; Carregar byte a ser impresso
+         LD  ADDRU
+         SC  PRTBYTE  ; Imprimir byte
+         LD  CHESP    ; Imprimir espaco
+         IO  6
+         LD  ADDRL    ; Adicionar um ao byte inferior do endereco
+         +   ONE
+         MM  ADDRL
+         JZ  OVERFL   ; Lidar com overflow do byte inferior do endereco
+         JP  PRINT    ; Recomecar loop
+ OVERFL  LD  ADDRU    ; Adicionar um ao byte superior do endereco
+         +   ONE
+         MM  ADDRU
+         JP  PRINT    ; Recomecar loop
+ FIM     CN  0        ; Fim do monitor
+        
+ ONE     K   1        ; Constante 1
+ CHESP   K   " "      ; Constante espaco ASCII
+ ADDRU   K   0        ; Byte superior de endereco
+ ADDRL   K   0        ; Byte inferior de endereco
+ SIZE    K   0        ; Quantidade de bytes a serem impressos
+
+ GETARG  $   2        ; Subrotina para pegar e converter byte hexa do argumento ASCII para binario
+ GETNIB1 IO  3        ; Pegar primeiro nibble
+         -   NH3A     ; Testar se entre 0-9 ou A-F
+         JN  GAASC1   ; Pular se for entre 0-9
+         -   NH7      ; Compensar para entre A-F
+ GAASC1  +   NHA      ; Corrigir para entre 0-9
+         *   NH10     ; Deslocamento em 4 bits para a esquerda
+         MM  UPNIB    ; Salvar nibble superior
+ GETNIB2 IO  3        ; Pegar segundo nibble
+         -   NH3A     ; Testar se entre 0-9 ou A-F
+         JN  GAASC2   ; Pular se entre 0-9
+         -   NH7      ; Compensar para entre A-F
+ GAASC2  +   NHA      ; Corrigir para entre 0-9
+         +   UPNIB    ; Adicionar nibble superior, completando o byte a ser retornado
+         CN  2        ; Terminar subrotina
+         JP  GETARG
+ PRTBYTE $   2        ; Subrotina de impressao de byte em hexadecimal ASCII
+         MM  TMPBYTE  ; Guardar byte a ser dumpado
+         /   NH10     ; Pegar nibble superior
+         *   NH10
+         MM  UPNIB    ; Armazenar nibble superior
+         /   NH10
+         -   NHA      ; Testar se entre 0-9 ou A-F
+         JN  PBASC1   ; Pular se for entre 0-9
+         +   NH7      ; Compensar para entre A-F
+ PBASC1  +   NH3A     ; Corrigir para entre 0-9
+         IO  6        ; Print do nibble convertido
+         LD  TMPBYTE  ; Carregar nibble inferior
+         -   UPNIB
+         -   NHA      ; Testar se entre 0-9 ou A-F
+         JN  PBASC2   ; Pular se for entre 0-9
+         +   NH7      ; Compensar para entre A-F
+ PBASC2  +   NH3A     ; Corrigir para entre 0-9
+         IO  6        ; Print do nibble convertido
+         LD  TMPBYTE  ; Carregar byte impresso antes de retornar
+         CN  2        ; Terminar subrotina
+         JP  PRTBYTE
+ NH7     K   /7       ; Constante numerica /7
+ NHA     K   /A       ; Constante numerica /A
+ NH10    K   /10      ; Constante numerica /10
+ NH3A    K   /3A      ; Constante numerica /3A
+ TMPBYTE K   0        ; Byte a ser impresso
+ UPNIB   K   0        ; Nibble superior
+         #   MONITOR
+
+ #+END_SRC
+
+**** N^2
+
+ O programa n2 é um programa de cálculo da elevação ao quadrado de um número,
+ utilizando o algoritimo =N^2 = 1 + 3 + 5 + 7 + ...=. Esse programa é quase
+ idêntico ao apresentado em sala, apenas um pouco adaptado para a linguagem de
+ montagem desse projeto específico. Esse programa foi incluso apenas para efeito
+ de provar a funcionalidade do sistema como um sistema de programação completo
+
+ #+BEGIN_SRC asm 
+         @   /6010
+ INIC    LD  UM
+         MM  CONT
+         MM  IMPAR
+         MM  N2
+ LOOP    LD  CONT
+         -   N
+         JZ  FORA
+         LD  CONT
+         +   UM
+         MM  CONT
+         LD  IMPAR
+         +   DOIS
+         MM  IMPAR
+         +   N2
+         MM  N2
+         JP  LOOP
+ FORA    CN  0
+ UM      K   1
+ DOIS    K   2
+ IMPAR   K   0
+ N       K   4
+ N2      K   0
+ CONT    K   0
+         #   INIC
+ #+END_SRC
+
+*** Exemplos de execução
+
+ A seguir se encontra exemplos de execução do sistema de programação,
+ demonstrando todos os comandos e execução de vários programas, provando como ele
+ é completo.
+
+**** Login
+
+ Depois de compilar o projeto, ao executar o executável gerado, o programa abre
+ com a seguinte mensagem:
+
+ #+BEGIN_SRC sh
+ Bem vindo ao sistema de programacao do Renato Rotenberg
+ #+END_SRC
+
+ Após a mensagem, o sistema requisita o login e senha do usuário. Cada usuário é
+ representado por uma pasta dentro da pasta =programs=. A informação dos usuários
+ existentes e suas respectivas senhas se encontra no arquivo
+ =programs/login.txt=. Esse projeto inclui um login já existente, com o nome de
+ usuário =renato= e a senha =senha123=. Caso o login não seja encontrado o
+ sistema informa o erro e volta a perguntar o login. A seguir se tem um exemplo
+ de login bem sucedido.
+
+ #+BEGIN_SRC sh
+ Informe o nome de usuario: renato
+ Informe a senha do usuario: senha123
+ #+END_SRC
+
+ Após o login bem sucedido a seguinte mensagem é imprimida e o interpretador de
+ comandos se torna disponível.
+
+ #+BEGIN_SRC sh
+ Bem vindo renato. O interpretador de comandos esta disponivel.
+ Comandos disponiveis: DIR, DEL, RUN, END.
+
+ renato@SisProg:~$ 
+ #+END_SRC
+
+**** Montando o programa N^2 e o monitor
+
+ O projeto pode não vem com nenhum programa montado, por isso cobrirei a montagem
+ deles. Rodando o comando =DIR= mostrará todos os programas disponíveis (por
+ tanto montados com a extensão =.txt= ou o /assembler/, que sempre está
+ disponível).
+
+ #+CAPTION: Exemplo de execução do DIR (1)
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ dir
+ assembler
+ dumperhexa.txt
+ #+END_SRC
+
+ Os programas em assembly são o =n2.asm= e o =monitor.asm=. Para montar esses
+ programas, basta executar =RUN assembler n2.asm= seguido de =RUN assembler monitor.asm=.
+
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ run assembler n2.asm
+ Montagem de n2.asm concluida
+ renato@SisProg:~$ run assembler monitor.asm
+ Montagem de monitor.asm concluida
+ #+END_SRC
+
+ Executando =DIR= agora gera:
+
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ dir
+ assembler
+ monitor.txt
+ n2.txt
+ dumperhexa.txt
+ #+END_SRC
+
+ Indicando a criação dos arquivos =n2.txt= e =monitor.txt=. Como o número a ser
+ elevado ao quadrado é decidido no código assembly, para mudar esse número é
+ necessário alterar ele no arquivo =n2.asm= e remontá-lo.
+
+**** Rodando o N^2 e conferindo o resultado com o monitor
+
+ Agora podemos executar o programa =n2.txt=. Para fazer isso basta rodar o
+ seguinte comando:
+
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ run n2.txt
+ #+END_SRC
+
+ Como o programa não imprime nada para a tela, o programa roda com sucesso
+ silenciosamente. Para inspecionar a memória da máquina e conferir o resultado do
+ programa, o =monitor.txt= sera usado. Lembrado que ele aceita argumentos na
+ forma =xxxx yy=, =xxxx= sendo o endereço inicial e =yy= quantos bytes serão
+ impressos, ambos em hexadecimal. Veja o arquivo =n2.lst=, gerado durante a
+ montagem:
+
+ #+BEGIN_SRC asm
+ 6010               @   /6010
+ 6010 8031  INIC    LD  UM
+ 6012 9036          MM  CONT
+ 6014 9033          MM  IMPAR
+ 6016 9035          MM  N2
+ 6018 8036  LOOP    LD  CONT
+ 601A 5034          -   N
+ 601C 1030          JZ  FORA
+ 601E 8036          LD  CONT
+ 6020 4031          +   UM
+ 6022 9036          MM  CONT
+ 6024 8033          LD  IMPAR
+ 6026 4032          +   DOIS
+ 6028 9033          MM  IMPAR
+ 602A 4035          +   N2
+ 602C 9035          MM  N2
+ 602E 0018          JP  LOOP
+ 6030 30    FORA    CN  0
+ 6031 01    UM      K   1
+ 6032 02    DOIS    K   2
+ 6033 00    IMPAR   K   0
+ 6034 04    N       K   4
+ 6035 00    N2      K   0
+ 6036 00    CONT    K   0
+ 6037 6010          #   INIC
+ #+END_SRC
+
+ Nesse arquivo é possível ver que as variáveis =N= e =N2= se encontram nos
+ endereços 0x6034 e 0x6035. Portanto para conferir esses endereços é possível
+ rodar =RUN monitor.txt 6034 02=:
+
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ run monitor.txt 6034 02
+ 04 10 
+ #+END_SRC
+
+ Como output temos os bytes 0x04 (o N) e 0x10 (o N2, que vale 16 em decimal),
+ comprovando o funcionameto dos programas n2 e monitor.
+
+**** Rodando o dumper hexa para obter o código de máquina de N^2 após sua execução
+
+ Após executar o programa n2, queremos executar o dumper para obter de volta o
+ programa a partir dele carregado na memória. Para isso, devemos executar:
+
+ #+BEGIN_SRC sh
+ renato@sisprog:~$ run dumperhexa.txt 6010 27 6010
+ #+END_SRC
+
+ Para dumpar 0x27 bytes a partir do endereço 0x6010 especificando o endereço
+ 0x6010 como endereço inicial de execução. O arquivo gerado será
+ =<data-horário>.txt=, que depende de quando o comando foi executado. Esse
+ arquivo pode ser de novo rodado como um programa normal, da mesma maneira que o
+ programa =n2.txt=, comprovando que o sistema de programação é completo,
+ permitindo a escrita e a execução de programas de maneira uniformizada.
+
+ É importante notar que o código dumpado não é exatamente igual ao do arquivo
+ =n2.txt=. Já que o arquivo foi dumpado após a execução do programa, alguns
+ espaços reservados a variáveis foram modificados em relação como estavam
+ inicialmente carregados. Em especial, é possível notar que o checksum (o último
+ byte/os dois últimos caracteres) também é diferente, já que os programas não são
+ absolutamente idênticos, como esperado. Esse programa, porém, inicializa os
+ espaços de variáveis apropriadamente no começo de sua execução, não importando
+ seus valores antes de se começar a execução. Portanto, apesar dessa ligeira
+ diferença, o funcionamento entre o programa =n2.txt= e sua versão dumpada são
+ absolutamente idênticos.
+
+ #+CAPTION: =n2.txt= original
+ #+BEGIN_SRC sh
+ 601027803190369033903580365034103080364031903680334032903340359035001830010200040000601022
+ #+END_SRC
+
+ #+CAPTION: =n2.txt= dumpado. Note ligeiras diferenças no final
+ #+BEGIN_SRC sh
+ 601027803190369033903580365034103080364031903680334032903340359035001830010207041004601007
+ #+END_SRC
+
+**** Modificando o arquivo n2.txt manualmente para testar o checksum
+
+ Ao modificar manualmente alguns caracteres do programa =n2.txt= montado, o
+ loader não executará o programa, imprimindo o caractere "!" na tela para avisar
+ o usuário e encerrando sua execução. Isso acontece porque o checksum passará a
+ falhar ao se modificar o arquivo montado manualmente, salvando o sistema de
+ rodar programas potencialmente corrompidos.
+
+ #+CAPTION: Executando o n2.txt após manualmente corromper ele
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ run n2.txt
+ !
+ #+END_SRC
+
+**** Apagando o programa n2.txt
+
+ O programa =n2.txt= pode ser apagado do sistema com o comando DEL. Na verdade,
+ esse comando adiciona a extensão =.del= e apenas apaga os arquivo na finalização
+ do sistema. O comando é o seguinte:
+
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ del n2.txt
+ Arquivo n2.txt renomeado para n2.txt.del
+ #+END_SRC
+
+**** Encerrando o sistema
+
+ Para encerrar o sistema, é apenas necessário rodar o comando END. Ao rodar o
+ comando, o sistema apaga permanentemente todos os arquivos com a extensão =.del=
+ e encerra a execução do programa, retornando a execução do terminal que invocou
+ o programa.
+
+ #+BEGIN_SRC sh
+ renato@SisProg:~$ end
+ Arquivo n2.txt.del apagado.
+
+ Sistema encerrado com sucesso, tchau!
+ #+END_SRC
+
+ \pagebreak
+
+** Conclusão
+
+ Ao final desse projeto foi obtido diversos programas: uma máquina virtual, um
+ montador, um loader, um dumper, um monitor, outros programas para a linguagem
+ MVN e um interpretador de comandos. Todos esses programas juntos constituem um
+ sistema de programação completo, que pode ser estendido com mais programas e com
+ melhorias no programas existentes. Para construir esse sistema, conhecimentos
+ que abrangem a matéria inteira foram abordados, de máquina de eventos até
+ montadores e código de máquina. Esse projeto se mostrou importante para a
+ consolidação de pontos dessa matéria, botando em prática o que foi ensinado em
+ aula.
+
+\pagebreak
+
+* Parte 2 - Sistemas Operacionais
+
+Essa parte do relatório detalha todas as modificações e adições para o projeto
+para atender todas as especificações do projeto desse semestre, incluindo todos
+os testes realizados para comprovar o funcionamento.
+
+\pagebreak
+
+** Modificações a linguagem de maquina MVN
+
+*** Novo opcode - "work" (WK)
+
+Foi adicionado um novo opcode, o opcode "work" (referido no assembly como WK).
+Ele é uma instrução de um byte de operando direto que simula uma instrução que
+dura alguns milissegundos, determinado pelo operando. A única função do WK é
+gastar tempo de máquina para a simulação, sendo internamente implementada como
+um simples "sleep" de processador.
+
+\pagebreak
+
+** Loader MVN substítuido
+
+O loader, antes feito em linguagem de máquina, agora faz parte do programa em
+C++ para melhor lidar com as maiores complexidades desse projeto. O loader agora
+é incluso no construtor da classe =Process=.
+
+\pagebreak
+
+** Multiprogramação
+
+Um dos objetivos da segunda parte do projeto é possibilitar um ambiente onde
+vários programas conseguem rodar concorrentemente.
+
+*** Programa feito para teste de multiprogramação: =work500m.asm=
+
+O seguinte programa foi criado para testar a multiprogramação. Ele é um simples
+loop em que a operação work é chamada 50 vezes, causando o programa a esperar 10
+milissegundos a cada iteração. O fato do programa demorar 500 milissegundos no
+total e a grande quantidade de instruções rodadas por execução torna esse
+programa aparentemente inútil perfeito para se testar multiprogramação do sistema.
+
+#+CAPTION: programa work500m.asm
+#+BEGIN_SRC asm
+        @   /8001
+WORK    LD  ZERO
+        MM  ITER
+LOOP    WK  10
+        LD  ITER
+        +   UM
+        MM  ITER
+        -   VEZES
+        JZ  FORA
+        JP  LOOP
+FORA    CN  0
+VEZES   K   50
+ITER    K   0
+ZERO    K   0
+UM      K   1
+        #   WORK
+#+END_SRC
+
+#+CAPTION: programa work500m.asm montado
+#+BEGIN_SRC asm
+80011680159014DA801440169014501310120005303200000180015A
+#+END_SRC
+
+*** Nova classes: Processo e Lista de processo
+
+Agora o programa tem duas novas classes: a classe =Process= e =ProcessList=. A
+classe =Process= serve para representar cada programa (como a máquina é simples,
+um programa corresponde a um processo), guardando seu contexto em momentos
+oportunos na troca do processo ativo, possibilitando a multiprogramação. A
+classe =ProcessList= armazena os processos ativos, lidando com a troca do
+processo ativo atual pelo próximo da fila.
+
+A classe =Process= guarda os blocos do programa (os programas agora são
+divididos em blocos para facilitar a virtualização da memória), o acumulador, o
+pc, se a última instrução ativou o modo de endereçamento indireto e quaisquer
+modificações de memória no momento do chaveamento de contexto.
+
+A classe =ProcessList= gerencia os processos ativos, lidando com a execução
+individual dos processos, chaveando o contexto depois de cada instrução executar
+um número fixo de instruções (nesse projeto definido como 16).
+
+\pagebreak
+
+** Virtualização
+
+*** Mapa de memória
+
+Foi adicionado à vm um mapa de memória. Esse mapa é um vetor que rastreia o id
+do processo que ocupa cada bloco de memória. Por padrão o valor =-1= indica um
+bloco livre. Antes de qualquer processo rodar, ele confere se ele está
+completamente carregado na memória, conferindo esse mapa. Se ele não estiver,
+ele carrega o programa antes de começar a execução. Isso permite que dois
+programas que ocupam o mesmo espaço de memória rodem concorrentemente, apesar do
+maior custo pela troca de memória toda vez que o contexto for chaveado,
+caraterizando a virtualização de memória.
+
+Para a virtualização, foi escolhido um bloco de tamanho 16. A divisão da memória
+em blocos é conveniente, pois sem essa divisão seria necessário conferir byte a
+byte se o programa está completamente carregado. Conferindo bloco a bloco
+permite que vários bytes sejam conferidos ao mesmo tempo. A desvantagem é que
+essa divisão aumenta a possibilidade de dois programas rodando concorrentemente
+acabem ocupando um mesmo bloco de memória, sem necessariamente estarem ocupando
+os mesmos endereços. A escolha do tamanho de cada bloco leva em consideração
+essas duas coisas: se o blocos forem pequenos, isso implica em mais blocos a
+serem conferidos toda vez, mas em menor chance de colisão. Se os blocos forem
+grandes, isso irá diminuir o número de blocos conferidos por processo, mais
+aumenta a chance de colisão de blocos e consequentes trocas desnecessárias de
+memória.
+
+*** Disco
+
+Emular um disco diretamente seria pouco compatível com o formato do projeto do
+semestre passado, por isso foi escolhida uma alternativa implementada na classe
+=Process=. O fato do objeto =Process= guardar os dados e as instruções enquanto
+fora da memória principal da VM emula um disco que armazena e troca com a
+memória principal o corpo dos programas quando conveniente.
+
+\pagebreak
+
+** Testes
+
+Foi criada a classe =SO= que contém os testes do novo sistema. Por questões de
+simplicidade a interface foi retirada do processo de compilação; ao compilar e
+rodar o novo projeto =so= os testes são automaticamente executados e seus
+resultados impressos, com o programa principal terminando automaticamente. Para
+compilar e rodar o novo projeto, é necessário rodar os seguintes comandos no
+terminal enquanto na pasta do projeto:
+
+#+BEGIN_SRC sh
+make so
+./so
+#+END_SRC
+
+Os requerimentos do projeto continuam sendo os mesmo do projeto do semestre
+passado (um compilador compatível com C++11).
+
+Para analisar o funcionamento dos testes, é necessário apenas consultar o
+arquivo =so.cpp=.
+
+*** Teste 1 - um único programa sendo executado
+
+O primeiro teste simplesmente executa o programa =n2= do semestre passado,
+apenas para demonstrar que a nova máquina continua atendendo todos os requisitos
+anteriores. Ao rodar o programa =n2=, o resultado de 4 ao quadrado será
+armazenado na memória, que depois é impressa no terminal para comprovar o
+funcionamento.
+
+#+CAPTION: Resultado do primeiro teste
+#+BEGIN_SRC sh
+Resultado do teste 1: 4 ao quadrado igual a 16
+#+END_SRC
+
+Esse teste não evidencia multiprogramação ou virtualização de memória, sendo
+necessário assim o teste seguinte.
+
+\pagebreak
+
+*** Teste 2 - quatro programas iguais disparados ao mesmo tempo
+
+Para testar a multiprogramação e a virtualização da memória, o segundo teste
+coloca quatro processos idênticos na fila: =work500m.txt=. Isso não só testa a
+multiprogramação por colocar quatro programas para revezar o processamento, mas
+também a virtualização da memória, pois os quatro processos ocupam a mesma
+posição de memória, sendo assim necessário salvar os dados escritos e
+restaurá-los ao fazer chaveamento de contexto, para que os loops dos processos
+fiquem isolados e não se afetarem.
+
+O programa =work500m.txt=, quando executado individualmente, é esperado que
+demore 500 milissegundos para terminar sua execução. Porém, nesse teste, os
+quatro processos desse programa acabam em por volta de dois segundos. Isso é
+porque o revezamento do processamento fazem com que cada processo apenas tenha
+um quarto do tempo de processamento por unidade de tempo, fazendo com que cada
+processo tenha demorado quatro vezes a mais que terminariam se fossem executados
+um a um. Como o tempo de revezamento é curto, isso também faz com que os
+processos que começaram ao mesmo tempo e tem mesma duração acabem quase ao
+mesmo tempo.
+
+#+CAPTION: Resultado do segundo teste
+#+BEGIN_SRC sh
+Resultado do teste 2: Processo 0 acaba depois de 1982.74 ms
+Resultado do teste 2: Processo 1 acaba depois de 1992.8 ms
+Resultado do teste 2: Processo 2 acaba depois de 2002.87 ms
+Resultado do teste 2: Processo 3 acaba depois de 2012.92 ms
+#+END_SRC
+
+\pagebreak
+
+*** Teste 3 - quatro programas disparados com um pequeno intervalo entre eles
+
+O próximo teste é similar ao anterior, mas agora os processos são disparados em
+intervalos de 250 milissegundos cada. Como cada programa roda por no mínimo 500
+milissegundos, o sistema precisa lidar com a inserção de mais processos durante
+a execução da máquina, multiprogramando os processos inseridos sobre demanda.
+
+É possível notar que o primeiro processo é o que leva menos tempo, pois é o
+único que passa uma maior parte do tempo sem nenhum outro processo na fila,
+levando por volta de 900 milissegundos. Depois dele, os processos seguinte duram
+em torno de 1423 milissegundos, com o último levando um pouco menos tempo por
+ter o processamento dedicado na parte final da sua execução. Ao todo, as
+execuções dos quatro processos continuam acabando em torno de dois segundos.
+
+#+CAPTION: Resultado do terceiro teste
+#+BEGIN_SRC sh
+Resultado do teste 3: Processo 0 começa no instante 0 ms
+                                 termina no instante 898.514 ms
+                                 durando 898.514 ms no total
+Resultado do teste 3: Processo 1 começa no instante 252.413 ms
+                                 termina no instante 1676.15 ms
+                                 durando 1423.74 ms no total
+Resultado do teste 3: Processo 2 começa no instante 505.018 ms
+                                 termina no instante 1928.36 ms
+                                 durando 1423.34 ms no total
+Resultado do teste 3: Processo 3 começa no instante 757.221 ms
+                                 termina no instante 2019.19 ms
+                                 durando 1261.97 ms no total
+#+END_SRC
+
+\pagebreak
+
+** Conclusão
+
+A segunda parte do projeto expandiu a máquina simples e limitada em uma
+comparativamente mais robusta, capaz de manejar vários processos ao mesmo tempo
+e trabalhar com uma memória aparentemente maior do que realmente é. Esse projeto
+serviu para exemplificar os desafios e avanços impulsionados pela a evolução dos
+sistemas operacionais, mais especificamente explorados a multiprogramação e a
+virtualização da memória.
