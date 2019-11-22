@@ -147,8 +147,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="assembler.h" />
+    <ClInclude Include="iodevicelist.h" />
     <ClInclude Include="process.h" />
-    <ClInclude Include="ProcessScheduler.h" />
     <ClInclude Include="readylist.h" />
     <ClInclude Include="sisprog.h" />
     <ClInclude Include="so.h" />
@@ -156,12 +156,12 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="vm.h" />
-    <ClInclude Include="waitinglist.h" />
+    <ClInclude Include="memorylist.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="assembler.cpp" />
+    <ClCompile Include="iodevicelist.cpp" />
     <ClCompile Include="process.cpp" />
-    <ClCompile Include="ProcessScheduler.cpp" />
     <ClCompile Include="readylist.cpp" />
     <ClCompile Include="sisprog.cpp" />
     <ClCompile Include="so.cpp" />
@@ -173,7 +173,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="vm.cpp" />
-    <ClCompile Include="waitinglist.cpp" />
+    <ClCompile Include="memorylist.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="makefile" />

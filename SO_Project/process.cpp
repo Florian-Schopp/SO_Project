@@ -6,7 +6,7 @@
 
 #include "vm.h"
 
-Process::Process(int id, const std::string &exeStr) :
+Process::Process(int id, const std::string &exeStr, int prioridade) :
     id(id)
 {
     std::vector<BYTE> exe;
@@ -29,16 +29,16 @@ Process::Process(int id, const std::string &exeStr) :
 
     if (checksum != 0)
         throw std::exception();
+	this->prioridade=prioridade;
 }
 
 void Process::loadProcess(VM &vm)
 {
     for (size_t i = 0; i < blocks.size(); i++)
     {
-        // Carregar processo se nao na memoria
         if (vm.memMap[i + initialPc/blockSize] != id)
         {
-			std::cout << id << "<Loaded process to RAM>" << initialPc + i*blockSize << std::endl;
+			//std::cout << id << "<Loaded process to RAM>" << initialPc + i*blockSize << std::endl;
             for (size_t j = 0; j < blockSize; j++)
                 vm.mem[initialPc + i*blockSize + j] = blocks[i][j];
             vm.memMap[i + initialPc/blockSize] = id;
@@ -58,6 +58,5 @@ void Process::saveProcess(VM &vm)
 void Process::endProcess(VM &vm)
 {
     for (size_t i = 0; i <= size/blockSize; i++)
-        // liberar processo na memoria
         vm.memMap[i + initialPc/blockSize] = -1;
 }

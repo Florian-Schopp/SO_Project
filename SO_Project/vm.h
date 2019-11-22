@@ -19,6 +19,7 @@ public:
     enum class CycleResult
     {
         running,
+		IORequest,
         finished
     };
 

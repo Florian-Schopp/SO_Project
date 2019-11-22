@@ -1,5 +1,5 @@
 # Arquivo com os logins existentes
 # Formato: Nome de usuario - (newline) - senha - (newline) - proximo usuario (...)
 
-renato
+schopp
 senha123

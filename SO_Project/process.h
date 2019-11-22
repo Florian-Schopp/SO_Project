@@ -2,7 +2,8 @@
 #define PROCESS_H
 
 #include <vector>
-
+#include <list>
+#include <chrono>
 #include "types.h"
 
 class VM;
@@ -10,13 +11,12 @@ class VM;
 class Process
 {
 public:
-    Process(int id, const std::string &filename);
+    Process(int id, const std::string &filename, int prioridade);
 
     void loadProcess(VM &vm);
     void saveProcess(VM &vm);
     void endProcess(VM &vm);
 
-    int id;
     size_t size;
     WORD initialPc = 0;
     BYTE ac = 0;
@@ -25,6 +25,13 @@ public:
     WORD offset = 0;
     std::vector<Block> blocks;
 
+	//Infos for so
+	int id;
+	int prioridade;
+	std::chrono::duration<double> startTime;
+	int executionTime;
+	std::list<int> resources;
+	int requestedResource;
 
 };
 

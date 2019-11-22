@@ -11,11 +11,23 @@ bool ReadyList::hasProcess()
 	return processes.size()>0;
 }
 
-void ReadyList::addProcess(const Process &process, VM &vm)
+void ReadyList::addProcess(Process &process, VM &vm)
 {
-    processes.push_back(process);
-    if (processes.size() == 1)
-        vm.restoreContext(process);
+	
+	if (processes.size() == 0) {
+		vm.restoreContext(process);
+	}
+
+	std::list<Process>::iterator it = processes.begin();
+	while (it != processes.end()) {
+		if (it->prioridade >= process.prioridade) {
+			processes.insert(it, process);
+			return;
+		}
+		it++;
+	}
+	processes.push_back(process);
+    
 }
 
 VM::CycleResult ReadyList::evalProcess(VM &vm)
@@ -32,13 +44,32 @@ VM::CycleResult ReadyList::evalProcess(VM &vm)
             Process proc = processes.front();
             processes.pop_front();
             vm.saveContext(proc);
-            processes.push_back(proc);
+			std::list<Process>::iterator it = processes.begin();
+			while (it != processes.end()) {
+				if (it->prioridade > proc.prioridade) {
+					processes.insert(it, proc);
+					break;
+				}
+				it++;
+			}
+			if (it == processes.end())
+				processes.push_back(proc);
             vm.restoreContext(processes.front());
         }
     }
 
     processes.front().loadProcess(vm);
 	return vm.eval();
+}
+
+Process& ReadyList::waitIOProcess(VM &vm)
+{
+	Process proc = processes.front();
+	processes.pop_front();
+	vm.saveContext(proc);
+	if (!processes.empty())
+		vm.restoreContext(processes.front());
+	return proc;
 }
 
 Process& ReadyList::removeCurrentProcess(VM &vm)

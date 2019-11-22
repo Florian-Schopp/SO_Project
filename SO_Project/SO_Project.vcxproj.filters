@@ -45,10 +45,10 @@
     <ClInclude Include="readylist.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="waitinglist.h">
+    <ClInclude Include="memorylist.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="ProcessScheduler.h">
+    <ClInclude Include="iodevicelist.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>
@@ -77,10 +77,10 @@
     <ClCompile Include="readylist.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="waitinglist.cpp">
+    <ClCompile Include="memorylist.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="ProcessScheduler.cpp">
+    <ClCompile Include="iodevicelist.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>

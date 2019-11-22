@@ -39,8 +39,6 @@ void VM::saveContext(Process &process)
 
 void VM::restoreContext(const Process &process)
 {
-	std::cout << "<Changed process to>" << process.id << std::endl;
-
     ac = process.ac;
     pc = process.pc;
     switchAddrMode = process.switchAddrMode;
@@ -48,7 +46,7 @@ void VM::restoreContext(const Process &process)
 
 void VM::fetchOpcode()
 {
-	std::cout << "<PC>" << pc <<std::endl;
+	
     BYTE fetched = mem[pc++];
     opcode = fetched >> 4;
     operand = fetched & 0x000F;
@@ -66,10 +64,8 @@ void VM::run()
     pc = 0x0001; //set pc to loader
     addrMode = AddrMode::direct;
     bool switchAddrMode = false;
-    while (running)
-    {
-        eval();
-    }
+	while (eval() == CycleResult::running);
+
 }
 
 VM::CycleResult VM::eval()
@@ -169,7 +165,7 @@ VM::CycleResult VM::eval()
             default:
                 break;
             }
-            break;
+			break;
         case 0x4:   //PD: Put Data
             switch (operand & 0x3)
             {
@@ -193,7 +189,7 @@ VM::CycleResult VM::eval()
         default:
             break;
         }
-        break;
+		return CycleResult::IORequest;
     case 0xD:   //WK: work (simular trabalho)
         std::this_thread::sleep_for(std::chrono::milliseconds(operand));
         break;
@@ -203,6 +199,7 @@ VM::CycleResult VM::eval()
     default:
         break;
     }
+	//std::cout << "<PC>" << pc << " \t <OPCode>" << int(opcode) << " \t <AC>" << int(ac) << std::endl;
     return CycleResult::running;
 }
 

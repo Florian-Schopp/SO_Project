@@ -12,8 +12,9 @@ class ReadyList
 public:
     ReadyList();
 	bool hasProcess();
-    void addProcess(const Process &process, VM &vm);
+    void addProcess(Process &process, VM &vm);
     VM::CycleResult evalProcess(VM &vm);
+	Process& waitIOProcess(VM &vm);
     Process& removeCurrentProcess(VM &vm);
     Process& front();
 
